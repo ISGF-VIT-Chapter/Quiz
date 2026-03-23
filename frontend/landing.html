@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuzzIt! - Choose Your Round</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,600,1,0" />
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { min-height:100vh; background: radial-gradient(circle at top right,rgba(168,85,247,0.06),transparent 50%),
+            radial-gradient(circle at bottom left,rgba(251,146,60,0.06),transparent 50%), var(--bg-color); }
+        .top-nav { padding:1.5rem 2rem; display:flex; justify-content:space-between; align-items:center;
+            border-bottom:1px solid rgba(226,232,240,0.5); position:sticky; top:0; z-index:50;
+            background:var(--bg-color); }
+        .brand { display:flex; align-items:center; gap:0.5rem; font-weight:800; font-size:1.4rem; }
+        .brand-dot { width:36px; height:36px; background:var(--orange-gradient); border-radius:10px;
+            display:flex; align-items:center; justify-content:center; color:white; transform:rotate(-10deg); }
+        .nav-right { display:flex; align-items:center; gap:1rem; }
+        .team-badge { background:var(--primary-gradient); color:white; padding:0.4rem 1rem; border-radius:20px; font-weight:800; font-size:0.9rem; }
+        .logout-btn { background:none; border:1px solid #e2e8f0; color:var(--text-muted); padding:0.4rem 1rem;
+            border-radius:8px; font-family:'Nunito',sans-serif; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:0.5rem; }
+        .logout-btn:hover { background:#f8fafc; color:var(--danger); }
+        .main { max-width:900px; margin:0 auto; padding:3rem 2rem; }
+        .hero { text-align:center; margin-bottom:3rem; }
+        .hero h1 { font-size:2.2rem; font-weight:800; margin:0 0 0.5rem 0; }
+        .hero p { color:var(--text-muted); font-size:1.1rem; margin:0; }
+        .rounds-grid { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
+        @media(max-width:700px){ .rounds-grid{ grid-template-columns:1fr; } }
+        .round-card { background:white; border-radius:var(--radius-lg); box-shadow:var(--shadow-soft);
+            border:1px solid rgba(226,232,240,0.6); padding:2rem; display:flex; flex-direction:column; gap:1.25rem;
+            transition:box-shadow 0.2s; }
+        .round-card:hover { box-shadow:var(--shadow-hover); }
+        .card-header { display:flex; align-items:center; justify-content:space-between; }
+        .card-icon { width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; color:white; }
+        .icon-r1 { background:linear-gradient(135deg,#818cf8,#a855f7); }
+        .icon-r2 { background:var(--orange-gradient); }
+        .live-badge { display:inline-flex; align-items:center; gap:0.4rem; padding:0.3rem 0.8rem; border-radius:20px;
+            font-size:0.8rem; font-weight:800; }
+        .live-badge.live { background:#dcfce7; color:#16a34a; }
+        .live-badge.offline { background:#f1f5f9; color:#64748b; }
+        .live-dot { width:7px; height:7px; border-radius:50%; }
+        .live-dot.live { background:#16a34a; animation: blink 1.2s infinite; }
+        .live-dot.offline { background:#94a3b8; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .card-title { font-size:1.3rem; font-weight:800; margin:0; }
+        .card-subtitle { color:#a855f7; font-weight:700; font-size:0.85rem; margin:0; }
+        .rules-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:0.6rem; }
+        .rules-list li { display:flex; align-items:flex-start; gap:0.6rem; font-size:0.9rem; color:var(--text-muted); font-weight:600; }
+        .rules-list li .material-symbols-rounded { font-size:16px; margin-top:1px; flex-shrink:0; }
+        .rule-icon-r1 { color:#a855f7; }
+        .rule-icon-r2 { color:#fb923c; }
+        .rule-warn { color:var(--danger) !important; font-weight:700 !important; }
+        .enter-btn { width:100%; padding:1rem; border:none; border-radius:var(--radius-sm); font-family:'Nunito',sans-serif;
+            font-weight:800; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+            gap:0.5rem; transition:all 0.2s; margin-top:auto; }
+        .enter-btn.r1 { background:linear-gradient(135deg,#818cf8,#a855f7); color:white; }
+        .enter-btn.r2 { background:var(--orange-gradient); color:white; }
+        .enter-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 20px rgba(168,85,247,0.3); }
+        .enter-btn:disabled { opacity:0.45; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+        .completed-badge { background:#dcfce7; color:#16a34a; padding:0.5rem 1rem; border-radius:8px;
+            font-weight:800; font-size:0.9rem; text-align:center; display:flex; align-items:center; justify-content:center; gap:0.5rem; }
+        .score-display { background:#f3e8ff; color:#a855f7; padding:0.5rem 1rem; border-radius:8px; font-weight:800; font-size:1rem; text-align:center; }
+    </style>
+</head>
+<body>
+    <nav class="top-nav">
+        <div class="brand">
+            <div class="brand-dot"><span class="material-symbols-rounded">bolt</span></div>
+            BuzzIt!
+        </div>
+        <div class="nav-right">
+            <div class="team-badge" id="teamBadge">Loading...</div>
+        </div>
+    </nav>
+
+    <button class="fixed-logout" id="logoutBtn">
+        <span class="material-symbols-rounded">logout</span> Logout
+    </button>
+
+    <div class="main">
+        <div class="hero">
+            <h1>Welcome to <span class="text-gradient">IAC Quiz 2025</span></h1>
+            <p>Select an active round to participate. Good luck!</p>
+        </div>
+
+        <div class="rounds-grid">
+            <!-- Round 1 Card -->
+            <div class="round-card">
+                <div class="card-header">
+                    <div class="card-icon icon-r1"><span class="material-symbols-rounded">quiz</span></div>
+                    <div class="live-badge offline" id="r1Badge">
+                        <div class="live-dot offline" id="r1Dot"></div>
+                        <span id="r1BadgeText">OFFLINE</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="card-subtitle">ROUND 1</p>
+                    <h2 class="card-title">Online Quiz</h2>
+                </div>
+                <ul class="rules-list">
+                    <li><span class="material-symbols-rounded rule-icon-r1">format_list_numbered</span>10 multiple choice questions, one at a time</li>
+                    <li><span class="material-symbols-rounded rule-icon-r1">timer</span>Each question has a fixed time limit — answer faster to score more</li>
+                    <li><span class="material-symbols-rounded rule-icon-r1">leaderboard</span>Scoring is time-based with microsecond precision — <strong>no ties possible</strong></li>
+                    <li><span class="material-symbols-rounded rule-icon-r1">fullscreen</span>Fullscreen is required throughout the quiz</li>
+                    <li><span class="material-symbols-rounded" style="color:var(--danger);font-size:16px;margin-top:1px;flex-shrink:0;">warning</span><span class="rule-warn">Tab switching is strictly monitored. 2 violations = auto disqualification</span></li>
+                    <li><span class="material-symbols-rounded rule-icon-r1">block</span>Do NOT refresh the page — your session will be lost</li>
+                    <li><span class="material-symbols-rounded rule-icon-r1">auto_timer</span>Each question auto-submits when the timer expires</li>
+                </ul>
+                <div id="r1ActionArea">
+                    <button class="enter-btn r1" id="enterR1Btn" disabled onclick="window.location.href='quiz.html'">
+                        <span class="material-symbols-rounded">play_arrow</span> Enter Round 1
+                    </button>
+                </div>
+            </div>
+
+            <!-- Round 2 Card -->
+            <div class="round-card">
+                <div class="card-header">
+                    <div class="card-icon icon-r2"><span class="material-symbols-rounded">notifications_active</span></div>
+                    <div class="live-badge offline" id="r2Badge">
+                        <div class="live-dot offline" id="r2Dot"></div>
+                        <span id="r2BadgeText">OFFLINE</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="card-subtitle" style="color:#fb923c;">ROUND 2</p>
+                    <h2 class="card-title">Live Buzzer Round</h2>
+                </div>
+                <ul class="rules-list">
+                    <li><span class="material-symbols-rounded rule-icon-r2">live_tv</span>Admin will display questions on screen in the main arena</li>
+                    <li><span class="material-symbols-rounded rule-icon-r2">bolt</span>Hit the buzzer as fast as possible when the question appears</li>
+                    <li><span class="material-symbols-rounded rule-icon-r2">emoji_events</span>Only the fastest buzz wins the chance to answer</li>
+                    <li><span class="material-symbols-rounded rule-icon-r2">block</span>One buzz per question — you cannot buzz again for the same question</li>
+                    <li><span class="material-symbols-rounded rule-icon-r2">speed</span>Your reaction time is recorded to millisecond precision</li>
+                    <li><span class="material-symbols-rounded rule-icon-r2">psychology</span>Be ready to answer immediately after buzzing in</li>
+                </ul>
+                <button class="enter-btn r2" id="enterR2Btn" disabled onclick="window.location.href='buzzer.html'">
+                    <span class="material-symbols-rounded">bolt</span> Enter Round 2
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        const token = localStorage.getItem('teamToken');
+        const teamDataRaw = localStorage.getItem('team');
+        if (!token || !teamDataRaw) window.location.href = 'index.html';
+
+        const teamData = JSON.parse(teamDataRaw);
+        document.getElementById('teamBadge').textContent = teamData.teamName;
+
+        function updateRoundUI(roundNumber, isLive) {
+            if (roundNumber === 1) {
+                const badge = document.getElementById('r1Badge');
+                const dot = document.getElementById('r1Dot');
+                const text = document.getElementById('r1BadgeText');
+                const btn = document.getElementById('enterR1Btn');
+                badge.className = `live-badge ${isLive ? 'live' : 'offline'}`;
+                dot.className = `live-dot ${isLive ? 'live' : 'offline'}`;
+                text.textContent = isLive ? 'LIVE' : 'OFFLINE';
+                if (isLive && !btn.dataset.completed) btn.disabled = false;
+                else if (!isLive) btn.disabled = true;
+            } else {
+                const badge = document.getElementById('r2Badge');
+                const dot = document.getElementById('r2Dot');
+                const text = document.getElementById('r2BadgeText');
+                const btn = document.getElementById('enterR2Btn');
+                badge.className = `live-badge ${isLive ? 'live' : 'offline'}`;
+                dot.className = `live-dot ${isLive ? 'live' : 'offline'}`;
+                text.textContent = isLive ? 'LIVE' : 'OFFLINE';
+                btn.disabled = !isLive;
+            }
+        }
+
+        async function loadRounds() {
+            try {
+                const res = await fetch(`${window.APP_CONFIG.backendUrl}/api/team/rounds`);
+                const data = await res.json();
+                data.rounds.forEach(r => updateRoundUI(r.roundNumber, r.isLive));
+            } catch (e) { console.error('Failed to load rounds', e); }
+        }
+
+        async function checkQuizStatus() {
+            try {
+                const res = await fetch(`${window.APP_CONFIG.backendUrl}/api/team/quiz/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.completed && !data.disqualified) {
+                    const actionArea = document.getElementById('r1ActionArea');
+                    actionArea.innerHTML = `
+                        <div class="completed-badge"><span class="material-symbols-rounded">check_circle</span> Round 1 Completed!</div>
+                    `;
+                    document.getElementById('enterR1Btn') && (document.getElementById('enterR1Btn').dataset.completed = 'true');
+                } else if (data.disqualified) {
+                    document.getElementById('r1ActionArea').innerHTML = `
+                        <div class="completed-badge" style="background:#fee2e2;color:#dc2626;">
+                            <span class="material-symbols-rounded">gavel</span> Disqualified: ${data.disqualifyReason || 'Violation'}
+                        </div>`;
+                }
+            } catch (e) {}
+        }
+
+        const socket = io(window.APP_CONFIG.backendUrl);
+        socket.on('connect', () => socket.emit('joinTeam', teamData.id));
+        socket.on('roundStatusChanged', (data) => updateRoundUI(data.roundNumber, data.isLive));
+        socket.on('teamRemoved', (data) => {
+            if (data.teamId === teamData.id) { localStorage.clear(); window.location.href = 'index.html?kicked=1'; }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch(`${window.APP_CONFIG.backendUrl}/api/team/logout`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${token}` }
+                });
+            } catch (e) {}
+            localStorage.clear();
+            window.location.href = 'index.html';
+        });
+
+        window.addEventListener('beforeunload', () => {
+            const url = `${window.APP_CONFIG.backendUrl}/api/team/logout`;
+            try {
+                const data = new Blob([JSON.stringify({})], { type: 'application/json' });
+                navigator.sendBeacon(url, data);
+            } catch (e) {}
+            localStorage.clear();
+        });
+
+        loadRounds();
+        checkQuizStatus();
+    </script>
+</body>
+</html>

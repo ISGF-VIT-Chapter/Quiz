@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuzzIt! - Round 1 Quiz</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,600,1,0" />
+    <style>
+        * { box-sizing:border-box; }
+        body { min-height:100vh; background:#0f0f1a; color:#f1f5f9; font-family:'Nunito',sans-serif; margin:0; }
+        /* SCREENS */
+        .screen { display:none; min-height:100vh; }
+        .screen.active { display:flex; flex-direction:column; }
+        /* PRE-START */
+        #screen-pre { align-items:center; justify-content:center; padding:2rem;
+            background:radial-gradient(circle at 60% 40%,rgba(168,85,247,0.12),transparent 60%); }
+        .pre-card { background:#1a1a2e; border-radius:24px; border:1px solid rgba(168,85,247,0.2);
+            padding:3rem; max-width:560px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.4); }
+        .pre-icon { width:72px; height:72px; background:linear-gradient(135deg,#818cf8,#a855f7); border-radius:20px;
+            display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem; }
+        .pre-card h1 { text-align:center; font-size:2rem; font-weight:800; margin:0 0 0.5rem; }
+        .pre-card p { text-align:center; color:#94a3b8; margin:0 0 2rem; }
+        .rules-box { background:#12122a; border-radius:12px; padding:1.5rem; margin-bottom:2rem; }
+        .rules-box h3 { margin:0 0 1rem; font-size:1rem; color:#a78bfa; display:flex; align-items:center; gap:0.5rem; }
+        .rules-box ul { margin:0; padding:0 0 0 1.2rem; list-style:none; display:flex; flex-direction:column; gap:0.6rem; }
+        .rules-box ul li { color:#cbd5e1; font-size:0.9rem; font-weight:600; display:flex; align-items:flex-start; gap:0.5rem; }
+        .rules-box ul li::before { content:"▸"; color:#a78bfa; flex-shrink:0; }
+        .warn-item { color:#fca5a5 !important; font-weight:700 !important; }
+        .start-btn { width:100%; padding:1.2rem; background:linear-gradient(135deg,#818cf8,#a855f7); border:none;
+            border-radius:12px; color:white; font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:800;
+            cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;
+            transition:transform 0.2s,box-shadow 0.2s; }
+        .start-btn:hover { transform:translateY(-2px); box-shadow:0 12px 24px rgba(168,85,247,0.4); }
+        /* QUIZ */
+        #screen-quiz { background:#0f0f1a; }
+        .quiz-header { padding:1.2rem 2rem; display:flex; align-items:center; justify-content:space-between;
+            border-bottom:1px solid rgba(255,255,255,0.07); }
+        .q-progress { font-size:0.95rem; font-weight:700; color:#94a3b8; }
+        .q-score-live { font-size:0.9rem; font-weight:800; color:#a78bfa; }
+        .quiz-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+            padding:2rem; max-width:760px; margin:0 auto; width:100%; }
+        /* Timer bar */
+        .timer-wrap { width:100%; margin-bottom:1.5rem; }
+        .timer-bar-bg { background:#1e1e3a; border-radius:999px; height:10px; overflow:hidden; }
+        .timer-bar { height:100%; border-radius:999px; transition:background 0.3s;
+            background:linear-gradient(90deg,#818cf8,#a855f7); transform-origin:left; }
+        .timer-text { display:flex; justify-content:space-between; align-items:center; margin-top:0.4rem; }
+        .timer-seconds { font-size:1.4rem; font-weight:800; font-family:monospace; }
+        .timer-seconds.warning { color:#ef4444; }
+        /* Question */
+        .question-card { background:#1a1a2e; border-radius:20px; border:1px solid rgba(168,85,247,0.15);
+            padding:2rem; width:100%; margin-bottom:1.5rem; }
+        .question-card h2 { font-size:1.35rem; font-weight:800; line-height:1.5; margin:0; }
+        .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; width:100%; }
+        @media(max-width:600px){ .options-grid{ grid-template-columns:1fr; } }
+        .option-btn { background:#1a1a2e; border:2px solid rgba(168,85,247,0.2); color:#f1f5f9;
+            border-radius:14px; padding:1.1rem 1.5rem; font-family:'Nunito',sans-serif; font-size:1rem;
+            font-weight:700; cursor:pointer; text-align:left; display:flex; align-items:center; gap:0.75rem;
+            transition:all 0.15s; }
+        .option-btn:hover:not(:disabled) { background:#23234a; border-color:#a855f7; transform:translateY(-1px); }
+        .option-btn:disabled { cursor:not-allowed; opacity:0.65; }
+        .option-btn.correct { background:#052e16; border-color:#22c55e; color:#86efac; }
+        .option-btn.incorrect { background:#2d0a0a; border-color:#ef4444; color:#fca5a5; }
+        .option-btn.selected { border-color:#a855f7; background:#23234a; }
+        .option-letter { width:32px; height:32px; border-radius:8px; background:rgba(168,85,247,0.15);
+            display:flex; align-items:center; justify-content:center; font-size:0.85rem; font-weight:800;
+            color:#a78bfa; flex-shrink:0; }
+        /* Feedback overlay */
+        .feedback-overlay { position:fixed; top:0;left:0;right:0; padding:1.5rem 2rem;
+            display:flex; align-items:center; justify-content:center; gap:0.75rem;
+            font-size:1.25rem; font-weight:800; transform:translateY(-100%);
+            transition:transform 0.3s; z-index:100; }
+        .feedback-overlay.show { transform:translateY(0); }
+        .feedback-overlay.correct-fb { background:linear-gradient(135deg,#052e16,#14532d); border-bottom:2px solid #22c55e; color:#86efac; }
+        .feedback-overlay.incorrect-fb { background:linear-gradient(135deg,#2d0a0a,#7f1d1d); border-bottom:2px solid #ef4444; color:#fca5a5; }
+        .feedback-overlay.timeout-fb { background:linear-gradient(135deg,#1c1c04,#451a03); border-bottom:2px solid #f59e0b; color:#fcd34d; }
+        /* Violation overlay */
+        .violation-overlay { position:fixed; inset:0; background:rgba(15,15,26,0.92); z-index:999;
+            display:none; align-items:center; justify-content:center; flex-direction:column; gap:1.5rem; }
+        .violation-overlay.show { display:flex; }
+        .violation-box { background:#2d0a0a; border:2px solid #ef4444; border-radius:20px; padding:2.5rem;
+            max-width:480px; text-align:center; }
+        .violation-box h2 { color:#fca5a5; margin:0 0 0.5rem; font-size:1.6rem; }
+        .violation-box p { color:#fca5a5; margin:0; font-size:1rem; opacity:0.85; }
+        .violation-countdown { font-size:3rem; font-weight:800; color:#ef4444; font-family:monospace; }
+        /* Complete/DQ screens */
+        #screen-complete, #screen-dq { align-items:center; justify-content:center; padding:2rem;
+            background:radial-gradient(circle at 50% 40%,rgba(34,197,94,0.08),transparent 60%); }
+        #screen-dq { background:radial-gradient(circle at 50% 40%,rgba(239,68,68,0.08),transparent 60%); }
+        .result-card { background:#1a1a2e; border-radius:24px; padding:3rem; max-width:520px; width:100%;
+            text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.07); }
+        .result-icon { width:80px; height:80px; border-radius:50%; margin:0 auto 1.5rem;
+            display:flex; align-items:center; justify-content:center; font-size:2.5rem; }
+        .result-icon.success { background:rgba(34,197,94,0.15); color:#22c55e; border:2px solid #22c55e; }
+        .result-icon.fail { background:rgba(239,68,68,0.15); color:#ef4444; border:2px solid #ef4444; }
+        .result-card h1 { font-size:2rem; font-weight:800; margin:0 0 0.5rem; }
+        .result-card p { color:#94a3b8; margin:0 0 2rem; }
+        .score-big { font-size:3.5rem; font-weight:800; font-family:monospace; color:#a78bfa; margin:1rem 0; }
+        .stats-row { display:flex; gap:1rem; justify-content:center; margin-bottom:2rem; }
+        .stat-pill { background:#12122a; border-radius:12px; padding:0.75rem 1.25rem; }
+        .stat-pill .val { font-size:1.4rem; font-weight:800; color:#f1f5f9; }
+        .stat-pill .lbl { font-size:0.8rem; color:#64748b; font-weight:700; margin-top:0.2rem; }
+        .back-btn-big { background:linear-gradient(135deg,#818cf8,#a855f7); border:none; border-radius:12px;
+            color:white; font-family:'Nunito',sans-serif; font-size:1rem; font-weight:800; padding:1rem 2rem;
+            cursor:pointer; display:inline-flex; align-items:center; gap:0.5rem; }
+    </style>
+</head>
+<body>
+    <button class="fixed-logout" id="logoutBtn">
+        <span class="material-symbols-rounded">logout</span> Logout
+    </button>
+
+    <!-- VIOLATION OVERLAY -->
+    <div class="violation-overlay" id="violationOverlay">
+        <div class="violation-box">
+            <span class="material-symbols-rounded" style="font-size:3rem;color:#ef4444;display:block;margin-bottom:1rem;">warning</span>
+            <h2 id="violationTitle">Tab Switch Detected!</h2>
+            <p id="violationMsg">This is violation #1. One more violation and you will be automatically disqualified.</p>
+        </div>
+        <div class="violation-countdown" id="violationCountdown">3</div>
+    </div>
+
+    <!-- FEEDBACK -->
+    <div class="feedback-overlay" id="feedbackOverlay">
+        <span class="material-symbols-rounded" id="feedbackIcon">check_circle</span>
+        <span id="feedbackText">Correct!</span>
+    </div>
+
+    <!-- SCREEN: PRE-START -->
+    <div class="screen active" id="screen-pre">
+        <div class="pre-card">
+            <div class="pre-icon"><span class="material-symbols-rounded" style="font-size:2rem;">quiz</span></div>
+            <h1>Round 1 — Online Quiz</h1>
+            <p>Read the rules carefully before starting</p>
+            <div class="rules-box">
+                <h3><span class="material-symbols-rounded" style="font-size:18px;">gavel</span> Rules</h3>
+                <ul>
+                    <li>10 MCQ questions, one at a time with a 30-second timer each</li>
+                    <li>Answer faster to earn more points per question (max 10 pts)</li>
+                    <li>Scoring is time-based — <strong>no ties are possible</strong></li>
+                    <li>Fullscreen is required — exiting counts as a violation</li>
+                    <li class="warn-item">Tab switching is monitored. 3rd violation auto-submits your quiz</li>
+                    <li>Questions auto-submit when time runs out (0 points for that question)</li>
+                    <li>Do NOT press back or refresh — your session cannot be restored</li>
+                </ul>
+            </div>
+            <button class="start-btn" id="startQuizBtn">
+                <span class="material-symbols-rounded">play_circle</span> Start Quiz (Enters Fullscreen)
+            </button>
+            <div style="text-align:center;margin-top:1rem;">
+                <a href="landing.html" style="color:#64748b;font-size:0.9rem;font-weight:700;text-decoration:none;">← Back to Rounds</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN: QUIZ -->
+    <div class="screen" id="screen-quiz">
+        <div class="quiz-header">
+            <div>
+                <div class="q-progress" id="qProgress">Question 1 / 10</div>
+                <div style="font-size:0.8rem;color:#475569;font-weight:600;" id="teamNameHeader">Loading...</div>
+            </div>
+        </div>
+        <div class="quiz-body">
+            <div class="timer-wrap">
+                <div class="timer-bar-bg">
+                    <div class="timer-bar" id="timerBar" style="width:100%;"></div>
+                </div>
+                <div class="timer-text">
+                    <span style="font-size:0.85rem;color:#64748b;font-weight:700;">Time Remaining</span>
+                    <span class="timer-seconds" id="timerDisplay">30</span>
+                </div>
+            </div>
+            <div class="question-card">
+                <h2 id="questionText">Loading question...</h2>
+            </div>
+            <div class="options-grid" id="optionsGrid"></div>
+        </div>
+    </div>
+
+    <!-- SCREEN: COMPLETE -->
+    <div class="screen" id="screen-complete">
+        <div class="result-card">
+            <div class="result-icon success"><span class="material-symbols-rounded">emoji_events</span></div>
+            <h1>Quiz Complete!</h1>
+            <p>You've answered all 10 questions. Please wait for the admin results.</p>
+            <button class="back-btn-big" onclick="window.location.href='landing.html'">
+                <span class="material-symbols-rounded">home</span> Back to Rounds
+            </button>
+        </div>
+    </div>
+
+    <!-- SCREEN: DISQUALIFIED -->
+    <div class="screen" id="screen-dq">
+        <div class="result-card" style="border-color:rgba(239,68,68,0.3);">
+            <div class="result-icon fail"><span class="material-symbols-rounded">gavel</span></div>
+            <h1 style="color:#fca5a5;">Disqualified</h1>
+            <p id="dqReason">You have been disqualified for repeated violations.</p>
+            <button class="back-btn-big" style="background:linear-gradient(135deg,#dc2626,#b91c1c);" onclick="window.location.href='landing.html'">
+                <span class="material-symbols-rounded">home</span> Back to Rounds
+            </button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+    (() => {
+        const token = localStorage.getItem('teamToken');
+        const teamData = JSON.parse(localStorage.getItem('team') || '{}');
+        if (!token) { window.location.href = 'index.html'; return; }
+
+        document.getElementById('teamNameHeader').textContent = teamData.teamName || '';
+
+        const API = window.APP_CONFIG.backendUrl;
+        const authH = { 'Content-Type':'application/json', 'Authorization':`Bearer ${token}` };
+
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            try {
+                await fetch(`${API}/api/team/logout`, { method: 'POST', headers: authH });
+            } catch (e) {}
+            localStorage.clear();
+            if (document.fullscreenElement) document.exitFullscreen();
+            window.location.href = 'index.html';
+        });
+
+        window.addEventListener('beforeunload', () => {
+            const url = `${API}/api/team/logout`;
+            try {
+                const data = new Blob([JSON.stringify({})], { type: 'application/json' });
+                navigator.sendBeacon(url, data);
+            } catch (e) {}
+            localStorage.clear();
+        });
+
+        // ---------- STATE ----------
+        let currentQuestion = null;
+        let questionStartTime = 0;
+        let timeLimitSeconds = 30;
+        let timerRAF = null;
+        let answered = false;
+        let runningScore = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let violationLock = false;
+        let lastViolationTime = 0;
+
+        // ---------- SCREENS ----------
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        // ---------- CHECK STATUS ----------
+        async function checkStatus() {
+            try {
+                const res = await fetch(`${API}/api/team/quiz/status`, { headers: authH });
+                const data = await res.json();
+                if (data.disqualified) { showDQ(data.disqualifyReason); return true; }
+                if (data.completed) { showComplete(data.totalScore, data.currentQuestionIndex); return true; }
+                if (!data.started) return false;
+                // In progress — resume
+                return false;
+            } catch (e) { return false; }
+        }
+
+        // ---------- START ----------
+        document.getElementById('startQuizBtn').addEventListener('click', async () => {
+            const alreadyDone = await checkStatus();
+            if (alreadyDone) return;
+
+            // Request fullscreen
+            try {
+                await document.documentElement.requestFullscreen();
+            } catch (e) {
+                window.APP_CONFIG.showToast('Please allow fullscreen to continue.', 'error');
+                return;
+            }
+
+            showScreen('screen-quiz');
+            attachProctoring();
+            await loadQuestion();
+        });
+
+        // ---------- PROCTORING ----------
+        function attachProctoring() {
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            window.addEventListener('blur', handleWindowBlur);
+            document.addEventListener('fullscreenchange', handleFullscreenChange);
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            document.addEventListener('keydown', e => {
+                if ((e.ctrlKey || e.metaKey) && ['c','v','u','s','a','p'].includes(e.key.toLowerCase())) e.preventDefault();
+                if (e.key === 'F12') e.preventDefault();
+            });
+        }
+
+        function removeProctoring() {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('blur', handleWindowBlur);
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) reportViolation('tab_switch');
+        }
+
+        function handleWindowBlur() {
+            if (document.visibilityState === 'hidden') return; // avoid double-count
+            reportViolation('window_blur');
+        }
+
+        function handleFullscreenChange() {
+            if (!document.fullscreenElement) reportViolation('fullscreen_exit');
+        }
+
+        async function reportViolation(reason) {
+            const now = Date.now();
+            if (violationLock || now - lastViolationTime < 1500) return;
+            violationLock = true;
+            lastViolationTime = now;
+
+            try {
+                const res = await fetch(`${API}/api/team/quiz/flag-violation`, {
+                    method: 'POST', headers: authH, body: JSON.stringify({ reason })
+                });
+                const data = await res.json();
+
+                if (data.disqualified) {
+                    removeProctoring();
+                    clearTimerRAF();
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    showDQ(reason);
+                    return;
+                }
+
+                showViolationWarning(reason, data.violationCount);
+            } catch (e) {}
+
+            setTimeout(() => { violationLock = false; }, 2000);
+        }
+
+        function showViolationWarning(reason, count) {
+            const overlay = document.getElementById('violationOverlay');
+            const title = document.getElementById('violationTitle');
+            const msg = document.getElementById('violationMsg');
+            const countdown = document.getElementById('violationCountdown');
+
+            const labels = { tab_switch: 'Tab Switch Detected!', window_blur: 'Window Switch Detected!', fullscreen_exit: 'Fullscreen Exited!' };
+            title.textContent = labels[reason] || 'Violation Detected!';
+            msg.textContent = `This is violation #${count}. ${count < 2 ? 'One more violation will result in automatic disqualification.' : ''}`;
+            overlay.classList.add('show');
+
+            let c = 3;
+            countdown.textContent = c;
+            const iv = setInterval(() => {
+                c--;
+                countdown.textContent = c;
+                if (c <= 0) { clearInterval(iv); overlay.classList.remove('show'); }
+            }, 1000);
+        }
+
+        // ---------- LOAD QUESTION ----------
+        async function loadQuestion() {
+            stopTimer();
+            answered = false;
+            document.querySelectorAll('.option-btn').forEach(b => { b.disabled = false; b.className = 'option-btn'; });
+
+            try {
+                const res = await fetch(`${API}/api/team/quiz/start`, { method:'POST', headers: authH });
+                const data = await res.json();
+
+                if (data.alreadyCompleted) { showComplete(data.totalScore, 10); return; }
+                if (data.disqualified) { showDQ(data.reason); return; }
+                if (data.message && res.status === 403) {
+                    window.APP_CONFIG.showToast('Round 1 is not active.', 'error');
+                    setTimeout(() => window.location.href = 'landing.html', 1500);
+                    return;
+                }
+
+                renderQuestion(data.question);
+            } catch (e) {
+                window.APP_CONFIG.showToast('Connection error. Retrying...', 'error');
+                setTimeout(loadQuestion, 2000);
+            }
+        }
+
+        function renderQuestion(q) {
+            currentQuestion = q;
+            timeLimitSeconds = q.timeLimitSeconds || 30;
+            answered = false;
+
+            document.getElementById('qProgress').textContent = `Question ${q.questionNumber} / ${q.totalQuestions}`;
+            document.getElementById('questionText').textContent = q.questionText;
+
+            const opts = [
+                { letter:'A', value: q.optionA },
+                { letter:'B', value: q.optionB },
+                { letter:'C', value: q.optionC },
+                { letter:'D', value: q.optionD }
+            ];
+
+            const grid = document.getElementById('optionsGrid');
+            grid.innerHTML = '';
+            opts.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.dataset.value = opt.value;
+                btn.innerHTML = `<span class="option-letter">${opt.letter}</span><span>${opt.value || '—'}</span>`;
+                btn.addEventListener('click', () => submitAnswer(opt.value, btn));
+                grid.appendChild(btn);
+            });
+
+            questionStartTime = Date.now();
+            startTimer(timeLimitSeconds);
+        }
+
+        // ---------- TIMER ----------
+        function startTimer(seconds) {
+            const bar = document.getElementById('timerBar');
+            const display = document.getElementById('timerDisplay');
+            const start = Date.now();
+            const endTime = start + seconds * 1000;
+
+            function tick() {
+                const now = Date.now();
+                const remaining = Math.max(0, endTime - now);
+                const fraction = remaining / (seconds * 1000);
+                bar.style.width = (fraction * 100) + '%';
+                const secs = Math.ceil(remaining / 1000);
+                display.textContent = secs;
+
+                if (remaining <= 5000) {
+                    bar.style.background = 'linear-gradient(90deg,#ef4444,#dc2626)';
+                    display.className = 'timer-seconds warning';
+                } else {
+                    bar.style.background = 'linear-gradient(90deg,#818cf8,#a855f7)';
+                    display.className = 'timer-seconds';
+                }
+
+                if (remaining <= 0) {
+                    if (!answered) autoSubmit();
+                    return;
+                }
+                timerRAF = requestAnimationFrame(tick);
+            }
+            timerRAF = requestAnimationFrame(tick);
+        }
+
+        function stopTimer() { if (timerRAF) { cancelAnimationFrame(timerRAF); timerRAF = null; } }
+        function clearTimerRAF() { stopTimer(); }
+
+        async function autoSubmit() {
+            if (answered) return;
+            answered = true;
+            stopTimer();
+            document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+            await submitToServer('TIMEOUT', null);
+        }
+
+        // ---------- ANSWER ----------
+        async function submitAnswer(value, btn) {
+            if (answered) return;
+            answered = true;
+            stopTimer();
+            btn.classList.add('selected');
+            document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+            await submitToServer(value, btn);
+        }
+
+        async function submitToServer(selectedAnswer, clickedBtn) {
+            const timeTakenMs = Date.now() - questionStartTime;
+
+            try {
+                const res = await fetch(`${API}/api/team/quiz/answer`, {
+                    method:'POST', headers: authH,
+                    body: JSON.stringify({ questionId: currentQuestion.id, selectedAnswer })
+                });
+                const data = await res.json();
+
+                if (res.status === 400 && data.message === 'You have been disqualified.') {
+                    removeProctoring(); clearTimerRAF();
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    showDQ('violation'); return;
+                }
+
+                if (data.isCorrect !== undefined) {
+                    if (data.isCorrect) {
+                        correctCount++;
+                        runningScore += data.score;
+                    } else {
+                        wrongCount++;
+                    }
+                }
+
+                if (data.quizComplete) {
+                    removeProctoring();
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    showComplete(data.totalScore, 10);
+                } else if (data.question) {
+                    renderQuestion(data.question);
+                }
+
+            } catch (e) {
+                window.APP_CONFIG.showToast('Error submitting answer.', 'error');
+            }
+        }
+
+        // ---------- FEEDBACK ----------
+        function showFeedback(type, text) {
+            const overlay = document.getElementById('feedbackOverlay');
+            const icon = document.getElementById('feedbackIcon');
+            const textEl = document.getElementById('feedbackText');
+            overlay.className = 'feedback-overlay show';
+            if (type === 'correct') { overlay.classList.add('correct-fb'); icon.textContent = 'check_circle'; }
+            else if (type === 'incorrect') { overlay.classList.add('incorrect-fb'); icon.textContent = 'cancel'; }
+            else { overlay.classList.add('timeout-fb'); icon.textContent = 'timer_off'; }
+            textEl.textContent = text;
+        }
+        function hideFeedback() { document.getElementById('feedbackOverlay').className = 'feedback-overlay'; }
+
+        // ---------- COMPLETE ----------
+        function showComplete(totalScore, questionsAnswered) {
+            showScreen('screen-complete');
+        }
+
+        function showDQ(reason) {
+            const labels = { tab_switch:'Tab switching', window_blur:'Window switching', fullscreen_exit:'Exiting fullscreen', violation:'Repeated violations' };
+            document.getElementById('dqReason').textContent = `Reason: ${labels[reason] || reason || 'Violations'}. Your score has been set to 0.`;
+            showScreen('screen-dq');
+        }
+
+        // ---------- INIT ----------
+        (async () => {
+            const done = await checkStatus();
+            if (!done) {
+                // Check round is live
+                try {
+                    const res = await fetch(`${API}/api/team/rounds`);
+                    const data = await res.json();
+                    const r1 = data.rounds.find(r => r.roundNumber === 1);
+                    if (!r1 || !r1.isLive) {
+                        window.APP_CONFIG.showToast('Round 1 is not active right now.', 'error');
+                        setTimeout(() => window.location.href = 'landing.html', 1800);
+                    }
+                } catch (e) {}
+            }
+        })();
+    })();
+    </script>
+</body>
+</html>
