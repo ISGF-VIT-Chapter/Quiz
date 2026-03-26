@@ -11,7 +11,7 @@ RUN npm install
 COPY . .
 
 # Build Vite app (pass backend URL at build time if needed)
-ARG VITE_BACKEND_URL=http://localhost:5001
+ARG VITE_BACKEND_URL=https://iac-quiz-buzzer-website-production.up.railway.app
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 
 RUN npm run build
