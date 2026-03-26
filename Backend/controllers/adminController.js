@@ -62,8 +62,12 @@ exports.deleteTeam = async (req, res) => {
         await prisma.team.delete({ where: { id } });
 
         // Attempt to remove them from redis too
-        await redis.zrem('quiz:leaderboard', id);
-        await redis.del(`team:active:${id}`);
+        try {
+            await redis.zrem('quiz:leaderboard', id);
+            await redis.del(`team:active:${id}`);
+        } catch (err) {
+            console.warn('Redis unavailable; skipping cleanup.', err.message);
+        }
 
         // Broadcast removal so the client force-logs out
         const io = req.app.get('io');
@@ -147,7 +151,11 @@ exports.forceLogoutTeam = async (req, res) => {
             data: { isActive: false }
         });
 
-        await redis.del(`team:active:${id}`);
+        try {
+            await redis.del(`team:active:${id}`);
+        } catch (err) {
+            console.warn('Redis unavailable; skipping active cleanup.', err.message);
+        }
 
         const io = req.app.get('io');
         if (io) {

@@ -11,6 +11,7 @@ const { protectTeam } = require('../middleware/auth');
 // Auth
 router.post('/login', authController.loginTeam);
 router.post('/logout', protectTeam, authController.logoutTeam);
+router.post('/logout/beacon', authController.logoutTeamBeacon);
 
 // Profile
 router.get('/profile', protectTeam, teamController.getTeamProfile);

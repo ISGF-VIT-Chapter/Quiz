@@ -73,6 +73,10 @@ exports.getWinner = async (req, res) => {
             select: { id: true, teamName: true, teamCode: true }
         });
 
+        if (!team) {
+            return res.json({ winner: null, message: 'Winner team not found.' });
+        }
+
         res.json({
             winner: {
                 teamId: team.id,

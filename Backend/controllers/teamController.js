@@ -15,7 +15,7 @@ exports.buzz = async (req, res) => {
         const state = await redis.hgetall('quiz:state');
 
         // Check if the buzzer is actually active
-        if (!state || state.buzzerEnabled !== 'true') {
+        if (!state || state.buzzerEnabled !== 'true' || !state.questionId) {
             return res.status(400).json({ message: 'Buzzer is currently disabled.' });
         }
 

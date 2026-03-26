@@ -57,12 +57,16 @@ exports.loginTeam = async (req, res) => {
 
             // Track active sessions for this team
             const activeKey = `team:active:${team.id}`;
-            const activeCount = await redis.incr(activeKey);
-            if (activeCount === 1) {
-                await prisma.team.update({
-                    where: { id: team.id },
-                    data: { isActive: true }
-                });
+            try {
+                const activeCount = await redis.incr(activeKey);
+                if (activeCount === 1) {
+                    await prisma.team.update({
+                        where: { id: team.id },
+                        data: { isActive: true }
+                    });
+                }
+            } catch (err) {
+                console.warn('Redis unavailable during login; skipping active count.', err.message);
             }
 
             const token = jwt.sign(
@@ -97,18 +101,61 @@ exports.logoutTeam = async (req, res) => {
         const { teamId } = req.user; // from protectTeam middleware
 
         const activeKey = `team:active:${teamId}`;
-        const activeCount = await redis.decr(activeKey);
-        if (activeCount <= 0) {
-            await redis.del(activeKey);
-            await prisma.team.update({
-                where: { id: teamId },
-                data: { isActive: false }
-            });
+        try {
+            const activeCount = await redis.decr(activeKey);
+            if (activeCount <= 0) {
+                await redis.del(activeKey);
+                await prisma.team.update({
+                    where: { id: teamId },
+                    data: { isActive: false }
+                });
+            }
+        } catch (err) {
+            console.warn('Redis unavailable during logout; skipping active count.', err.message);
         }
 
         res.status(200).json({ message: 'Logout successful' });
     } catch (error) {
         console.error("Team Logout Error:", error);
         res.status(500).json({ message: 'Server error during logout' });
+    }
+};
+
+// POST /api/team/logout/beacon (token in body for sendBeacon)
+exports.logoutTeamBeacon = async (req, res) => {
+    try {
+        const token = req.body?.token;
+        if (!token) return res.status(200).json({ message: 'Logout skipped' });
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch {
+            return res.status(200).json({ message: 'Logout skipped' });
+        }
+
+        if (decoded.role !== 'participant') {
+            return res.status(200).json({ message: 'Logout skipped' });
+        }
+
+        const teamId = decoded.teamId;
+        const activeKey = `team:active:${teamId}`;
+        try {
+            const activeCount = await redis.decr(activeKey);
+            if (activeCount <= 0) {
+                await redis.del(activeKey);
+                await prisma.team.update({
+                    where: { id: teamId },
+                    data: { isActive: false }
+                });
+            }
+        } catch (err) {
+            console.warn('Redis unavailable during beacon logout; skipping active count.', err.message);
+        }
+
+        return res.status(200).json({ message: 'Logout successful' });
+    } catch (error) {
+        console.error('Team Beacon Logout Error:', error);
+        return res.status(200).json({ message: 'Logout skipped' });
     }
 };

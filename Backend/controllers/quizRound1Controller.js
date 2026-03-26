@@ -44,7 +44,11 @@ exports.startQuiz = async (req, res) => {
         }
 
         // Store question start time in Redis
-        await redis.set(`quiz:r1:qstart:${teamId}`, Date.now().toString(), 'EX', 120);
+        try {
+            await redis.set(`quiz:r1:qstart:${teamId}`, Date.now().toString(), 'EX', 120);
+        } catch (err) {
+            console.warn('Redis unavailable; skipping qstart write.', err.message);
+        }
 
         res.json({
             question: {
@@ -75,9 +79,13 @@ exports.submitAnswer = async (req, res) => {
 
         // Rate limiting via Redis
         const rateKey = `quiz:r1:ratelimit:${teamId}`;
-        const recentCall = await redis.get(rateKey);
-        if (recentCall) return res.status(429).json({ message: 'Too many requests. Please wait.' });
-        await redis.set(rateKey, '1', 'PX', 500);
+        try {
+            const recentCall = await redis.get(rateKey);
+            if (recentCall) return res.status(429).json({ message: 'Too many requests. Please wait.' });
+            await redis.set(rateKey, '1', 'PX', 500);
+        } catch (err) {
+            console.warn('Redis unavailable; skipping rate limit.', err.message);
+        }
 
         // Validate session
         const session = await prisma.quizSession.findUnique({ where: { teamId } });
@@ -91,7 +99,12 @@ exports.submitAnswer = async (req, res) => {
         if (question.id !== questionId) return res.status(400).json({ message: 'Invalid question ID.' });
 
         // Get question start time
-        const qStartRaw = await redis.get(`quiz:r1:qstart:${teamId}`);
+        let qStartRaw = null;
+        try {
+            qStartRaw = await redis.get(`quiz:r1:qstart:${teamId}`);
+        } catch (err) {
+            console.warn('Redis unavailable; using local time for qstart.', err.message);
+        }
         const qStartMs = qStartRaw ? parseInt(qStartRaw) : answerReceivedAt;
         const timeTakenMs = answerReceivedAt - qStartMs;
 
@@ -114,7 +127,11 @@ exports.submitAnswer = async (req, res) => {
         }
 
         const newIndex = session.currentQuestionIndex + 1;
-        await redis.del(`quiz:r1:qstart:${teamId}`);
+        try {
+            await redis.del(`quiz:r1:qstart:${teamId}`);
+        } catch (err) {
+            console.warn('Redis unavailable; skipping qstart delete.', err.message);
+        }
 
         if (newIndex >= 10) {
             // Quiz complete — compute total
@@ -148,7 +165,14 @@ exports.submitAnswer = async (req, res) => {
         ]);
 
         const nextQuestion = await nextQuestionPromise;
-        await redis.set(`quiz:r1:qstart:${teamId}`, Date.now().toString(), 'EX', 120);
+        if (!nextQuestion) {
+            return res.status(500).json({ message: 'No next question found.' });
+        }
+        try {
+            await redis.set(`quiz:r1:qstart:${teamId}`, Date.now().toString(), 'EX', 120);
+        } catch (err) {
+            console.warn('Redis unavailable; skipping qstart write.', err.message);
+        }
 
         res.json({
             isCorrect,
@@ -197,8 +221,13 @@ exports.flagViolation = async (req, res) => {
         const { reason } = req.body;
 
         const countKey = `quiz:r1:violations:${teamId}`;
-        const count = await redis.incr(countKey);
-        await redis.expire(countKey, 7200); // 2 hour TTL
+        let count = 1;
+        try {
+            count = await redis.incr(countKey);
+            await redis.expire(countKey, 7200); // 2 hour TTL
+        } catch (err) {
+            console.warn('Redis unavailable; using local violation count.', err.message);
+        }
 
         const session = await prisma.quizSession.findUnique({ where: { teamId } });
         if (!session || session.completedAt || session.isDisqualified) {

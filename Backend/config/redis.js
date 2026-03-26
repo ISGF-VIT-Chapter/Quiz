@@ -4,6 +4,8 @@
 const Redis = require('ioredis');
 
 const redis = new Redis(process.env.REDIS_URL, {
+    connectTimeout: 1000,
+    enableOfflineQueue: false,
     maxRetriesPerRequest: 3,
     retryStrategy(times) {
         const delay = Math.min(times * 200, 2000);
