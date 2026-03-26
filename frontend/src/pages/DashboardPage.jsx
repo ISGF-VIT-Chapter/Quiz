@@ -84,17 +84,28 @@ export default function DashboardPage() {
     }, ...prev]);
   }
 
+  async function parseApiJson(res) {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      return await res.json();
+    }
+
+    // HTML here usually means frontend URL was used as API base and Vercel rewrote to index.html.
+    await res.text();
+    throw new Error('Backend URL misconfigured. Set VITE_BACKEND_URL to your backend API domain.');
+  }
+
   async function loadRounds() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/rounds`, { headers: authH });
       if (res.status === 401 || res.status === 403) { localStorage.removeItem('adminToken'); navigate('/admin'); return; }
-      const data = await res.json();
+      const data = await parseApiJson(res);
       (data.rounds || []).forEach(r => {
         if (r.roundNumber === 1) setR1Live(r.isLive);
         else setR2Live(r.isLive);
       });
-    } catch {
-      showToast('Unable to load round status.', 'error');
+    } catch (err) {
+      showToast(err.message || 'Unable to load round status.', 'error');
     }
   }
 
@@ -102,7 +113,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/admin/rounds/${roundNumber}/toggle`, { method: 'PUT', headers: authH });
       if (res.status === 401 || res.status === 403) { localStorage.removeItem('adminToken'); navigate('/admin'); return; }
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) {
         throw new Error(data.message || 'Failed to toggle round');
       }
