@@ -5,7 +5,7 @@ services:
     build:
       context: .
       args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:5001}
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-https://iac-quiz-buzzer-website-production.up.railway.app}
     ports:
       - "3000:80"
     restart: unless-stopped
